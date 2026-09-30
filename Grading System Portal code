@@ -1,0 +1,265 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+public class GradingSystemGUI {
+
+    // Enhanced Student Profile holding individual category scores
+    static class StudentData {
+        String id;
+        String name;
+
+        // Rows: CC103, HCI, Ethics, Purposive Communication
+        // Cols: Assignments, Quizzes, Projects, Participation, Final Exam
+        double[][] courseScores;
+        String[] courseNames = {"CC103", "HCI", "Ethics", "Purposive Communication"};
+
+        public StudentData(String id, String name, double[][] scores) {
+            this.id = id;
+            this.name = name;
+            this.courseScores = scores;
+        }
+
+        // Calculate weighted percentage and letter grade for a specific course row
+        public Object[] getCourseRowData(int courseIndex) {
+            double[] scores = courseScores[courseIndex];
+            // Weights from the portal donut chart
+            double weightedPercent = (scores[0] * 0.30) + (scores[1] * 0.20) + (scores[2] * 0.25) + (scores[3] * 0.15) + (scores[4] * 0.15);
+
+            // Grading scale logic matching the screenshot
+            String letterGrade = "F";
+            if (weightedPercent >= 97) letterGrade = "A+";
+            else if (weightedPercent >= 93) letterGrade = "A";
+            else if (weightedPercent >= 90) letterGrade = "A-";
+            else if (weightedPercent >= 87) letterGrade = "B+";
+            else if (weightedPercent >= 83) letterGrade = "B";
+            else if (weightedPercent >= 80) letterGrade = "B-";
+            else if (weightedPercent >= 77) letterGrade = "C+";
+            else if (weightedPercent >= 73) letterGrade = "C";
+            else if (weightedPercent >= 70) letterGrade = "C-";
+            else if (weightedPercent >= 60) letterGrade = "D";
+
+            return new Object[]{courseNames[courseIndex], String.format("%.1f%% (%s)", weightedPercent, letterGrade), letterGrade};
+        }
+
+        // Calculate overall GPA based on course performance
+        public String calculateOverallGPA() {
+            double totalPoints = 0;
+            for (int i = 0; i < courseNames.length; i++) {
+                String grade = (String) getCourseRowData(i)[2];
+                switch (grade) {
+                    case "A+": case "A": totalPoints += 4.0; break;
+                    case "A-": totalPoints += 3.7; break;
+                    case "B+": totalPoints += 3.3; break;
+                    case "B":  totalPoints += 3.0; break;
+                    case "B-": totalPoints += 2.7; break;
+                    case "C+": totalPoints += 2.3; break;
+                    case "C":  totalPoints += 2.0; break;
+                    case "C-": totalPoints += 1.7; break;
+                    case "D":  totalPoints += 1.0; break;
+                    default:   totalPoints += 0.0;
+                }
+            }
+            double gpa = totalPoints / courseNames.length;
+            return String.format("%.2f %s", gpa, (gpa >= 3.5 ? "(Deans List)" : ""));
+        }
+
+        // Convert all courses to data rows for the JTable display matrix
+        public Object[][] getTableData() {
+            Object[][] data = new Object[courseNames.length][2];
+            for (int i = 0; i < courseNames.length; i++) {
+                Object[] row = getCourseRowData(i);
+                data[i][0] = row[0]; // Course Name
+                data[i][1] = row[1]; // Weighted Percentage + Letter Grade
+            }
+            return data;
+        }
+
+        @Override
+        public String toString() {
+            return id + " - " + name;
+        }
+    }
+
+    public static void main(String[] args) {
+        // 1. Create Mock Database (Initial scores out of 100 for Assignments, Quizzes, Projects, Participation, Final Exam)
+        Map<String, StudentData> studentDatabase = new LinkedHashMap<>();
+
+        // Jerime Parba
+        studentDatabase.put("59844200", new StudentData("59844200", "Jerime Parba", new double[][]{
+                {98, 95, 99, 100, 96}, // CC103
+                {92, 90, 91, 95, 85},  // HCI
+                {88, 85, 89, 90, 84},  // Ethics
+                {85, 88, 86, 89, 87}   // Purposive Communication
+        }));
+
+        // Lord Voldimort
+        studentDatabase.put("59844201", new StudentData("59844201", "Lord Voldimort", new double[][]{
+                {100, 100, 98, 95, 100}, // CC103
+                {99, 97, 96, 100, 98},   // HCI
+                {95, 94, 92, 90, 95},    // Ethics
+                {100, 99, 100, 95, 99}   // Purposive Communication
+        }));
+
+        // Sung Jinwoo
+        studentDatabase.put("59844202", new StudentData("59844202", "Sung Jinwoo", new double[][]{
+                {82, 80, 85, 90, 78},   // CC103
+                {78, 75, 77, 85, 74},   // HCI
+                {80, 82, 79, 88, 81},   // Ethics
+                {100, 100, 100, 95, 100} // Purposive Communication
+        }));
+
+        // 2. Setup Frame Layout
+        JFrame frame = new JFrame("Academia Web Portal - Teacher Management Console");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(850, 580);
+        frame.setLayout(new BorderLayout(10, 10));
+
+        // 3. Header Section
+        JPanel headerPanel = new JPanel();
+        headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
+        headerPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 10, 15));
+
+        JLabel titleLabel = new JLabel("MY GRADING SYSTEM PORTAL");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 22));
+        titleLabel.setForeground(new Color(11, 60, 93));
+
+        JLabel subTitle = new JLabel("Teacher Portal: Grade Modification and Evaluation Engine.");
+        subTitle.setFont(new Font("Arial", Font.PLAIN, 14));
+
+        JPanel selectorPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 5));
+        JLabel selectLabel = new JLabel("Select Student: ");
+        selectLabel.setFont(new Font("Arial", Font.BOLD, 13));
+
+        JComboBox<StudentData> studentDropdown = new JComboBox<>();
+        for (StudentData student : studentDatabase.values()) {
+            studentDropdown.addItem(student);
+        }
+
+        selectorPanel.add(selectLabel);
+        selectorPanel.add(studentDropdown);
+
+        headerPanel.add(titleLabel);
+        headerPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        headerPanel.add(subTitle);
+        headerPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        headerPanel.add(selectorPanel);
+        frame.add(headerPanel, BorderLayout.NORTH);
+
+        // 4. Content Workspace Layout (Split View)
+        JPanel contentPanel = new JPanel(new GridLayout(1, 2, 20, 20));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+
+        // Left Side: Live Grade Sheet Table
+        String[] columns = {"Course Name", "Current Weighted Evaluation"};
+        StudentData initialStudent = studentDropdown.getItemAt(0);
+        DefaultTableModel tableModel = new DefaultTableModel(initialStudent.getTableData(), columns) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
+        };
+        JTable table = new JTable(tableModel);
+        contentPanel.add(new JScrollPane(table));
+
+        // Right Side: Teacher Control Panel Box Form
+        JPanel teacherPanel = new JPanel(new GridBagLayout());
+        teacherPanel.setBorder(BorderFactory.createTitledBorder("Teacher Control Panel - Edit Scores"));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Input field elements
+        JComboBox<String> courseDropdown = new JComboBox<>(initialStudent.courseNames);
+        JTextField txtAsgn = new JTextField(5);
+        JTextField txtQuiz = new JTextField(5);
+        JTextField txtProj = new JTextField(5);
+        JTextField txtPart = new JTextField(5);
+        JTextField txtExam = new JTextField(5);
+        JButton btnUpdate = new JButton("Update Student Profile");
+        btnUpdate.setBackground(new Color(11, 60, 93));
+        btnUpdate.setForeground(Color.WHITE);
+        btnUpdate.setFont(new Font("Arial", Font.BOLD, 13));
+
+        // Layout mapping variables inside GridBag
+        gbc.gridx = 0; gbc.gridy = 0; teacherPanel.add(new JLabel("Target Subject:"), gbc);
+        gbc.gridx = 1; teacherPanel.add(courseDropdown, gbc);
+        gbc.gridx = 0; gbc.gridy = 1; teacherPanel.add(new JLabel("Assignments (30%):"), gbc);
+        gbc.gridx = 1; teacherPanel.add(txtAsgn, gbc);
+        gbc.gridx = 0; gbc.gridy = 2; teacherPanel.add(new JLabel("Quizzes (20%):"), gbc);
+        gbc.gridx = 1; teacherPanel.add(txtQuiz, gbc);
+        gbc.gridx = 0; gbc.gridy = 3; teacherPanel.add(new JLabel("Projects (25%):"), gbc);
+        gbc.gridx = 1; teacherPanel.add(txtProj, gbc);
+        gbc.gridx = 0; gbc.gridy = 4; teacherPanel.add(new JLabel("Participation (15%):"), gbc);
+        gbc.gridx = 1; teacherPanel.add(txtPart, gbc);
+        gbc.gridx = 0; gbc.gridy = 5; teacherPanel.add(new JLabel("Final Exam (15%):"), gbc);
+        gbc.gridx = 1; teacherPanel.add(txtExam, gbc);
+        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 2; gbc.insets = new Insets(15, 5, 5, 5);
+        teacherPanel.add(btnUpdate, gbc);
+
+        contentPanel.add(teacherPanel);
+        frame.add(contentPanel, BorderLayout.CENTER);
+
+        // 5. Footer Dashboard Status Display Bar
+        JLabel footerLabel = new JLabel("", SwingConstants.CENTER);
+        footerLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        footerLabel.setOpaque(true);
+        footerLabel.setBackground(new Color(240, 244, 248));
+        footerLabel.setBorder(BorderFactory.createEmptyBorder(12, 10, 12, 10));
+        frame.add(footerLabel, BorderLayout.SOUTH);
+
+        // Helper update utility function to populate values seamlessly
+        Runnable loadSelectedStudentData = () -> {
+            StudentData selected = (StudentData) studentDropdown.getSelectedItem();
+            if (selected != null) {
+                tableModel.setDataVector(selected.getTableData(), columns);
+                footerLabel.setText("Active Student: " + selected.name + " (" + selected.id + ")   |   Overall calculated GPA: " + selected.calculateOverallGPA());
+
+                int courseIdx = courseDropdown.getSelectedIndex();
+                double[] scores = selected.courseScores[courseIdx];
+                txtAsgn.setText(String.valueOf(scores[0]));
+                txtQuiz.setText(String.valueOf(scores[1]));
+                txtProj.setText(String.valueOf(scores[2]));
+                txtPart.setText(String.valueOf(scores[3]));
+                txtExam.setText(String.valueOf(scores[4]));
+            }
+        };
+
+        // Initialize display configuration defaults
+        loadSelectedStudentData.run();
+
+        // 6. Action Listeners (Event Controllers)
+        studentDropdown.addActionListener(e -> loadSelectedStudentData.run());
+        courseDropdown.addActionListener(e -> loadSelectedStudentData.run());
+
+        btnUpdate.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                StudentData selected = (StudentData) studentDropdown.getSelectedItem();
+                if (selected != null) {
+                    try {
+                        int courseIdx = courseDropdown.getSelectedIndex();
+
+                        // Parse new numerical data metrics safely from text fields
+                        selected.courseScores[courseIdx][0] = Double.parseDouble(txtAsgn.getText());
+                        selected.courseScores[courseIdx][1] = Double.parseDouble(txtQuiz.getText());
+                        selected.courseScores[courseIdx][2] = Double.parseDouble(txtProj.getText());
+                        selected.courseScores[courseIdx][3] = Double.parseDouble(txtPart.getText());
+                        selected.courseScores[courseIdx][4] = Double.parseDouble(txtExam.getText());
+
+                        // Re-render and calculate outputs instantly
+                        loadSelectedStudentData.run();
+                        JOptionPane.showMessageDialog(frame, "Academic records updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(frame, "Please make sure all fields contain valid numbers.", "Input Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        });
+
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+}
